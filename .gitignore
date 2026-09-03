@@ -1,0 +1,14 @@
+# Go
+/bin/
+*.exe
+*.test
+
+# kubeconfig -- cluster access, never commit
+kubeconfig*.yaml
+.kube/
+
+# local secrets/env
+.env
+*.local.yaml
+
+.DS_Store
