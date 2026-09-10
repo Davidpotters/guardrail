@@ -23,6 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: read # CodeQL reads workflow-run metadata for its own telemetry, unrelated to the SARIF results themselves
     steps:
       - uses: actions/checkout@v4
       - uses: github/codeql-action/init@v3
