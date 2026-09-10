@@ -72,9 +72,14 @@ attacker still can't touch the cluster directly.
       written in Go, registered with the cluster, enforcing a real
       policy set (required resource limits, no root containers, no
       `:latest` image tags, images only from an allow-listed registry).
+      Packaged with a hand-written multi-stage Dockerfile, something this
+      project required writing from scratch rather than building on a
+      pre-built base image.
 - [ ] **v3 — Harness CI pipeline.** SAST, secrets scanning, and container
       image scanning on every push, ending in a manifest update -- never
-      a direct cluster deploy.
+      a direct cluster deploy. Also generates a Software Bill of Materials and signs the resulting
+      image (cosign/Sigstore), real supply-chain steps added
+      deliberately, not because a solo project strictly needs them.
 - [ ] **v4 — Failure-mode demo.** A deliberately non-compliant manifest
       submitted both via the pipeline and via direct `kubectl apply`,
       showing the webhook blocks it either way, plus a written incident
