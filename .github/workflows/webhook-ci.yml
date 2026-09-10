@@ -54,3 +54,77 @@ jobs:
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Gated on both scans above passing -- mirrors the actual gate I ran at
+  # TransUnion (nothing reaches the registry carrying a Critical/High/Medium
+  # finding), just moved to a different pipeline.
+  build-scan-sign:
+    name: Build, scan, sign, update manifest
+    needs: [codeql, secrets-scan]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # to commit the manifest image-tag update back
+      packages: write # to push to GHCR
+      id-token: write # for cosign's keyless signing (GitHub OIDC, no stored key)
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: vars
+        run: echo "tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build image
+        run: docker build -t "ghcr.io/davidpotters/guardrail-webhook:${{ steps.vars.outputs.tag }}" webhook/
+
+      # Fails the build on Critical/High findings -- same severity bar as
+      # the SonarQube/Checkmarx gate from the day job, just a different tool
+      # checking a container image instead of source code.
+      - name: Scan image (Trivy)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/davidpotters/guardrail-webhook:${{ steps.vars.outputs.tag }}
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0.17.0
+        with:
+          image: ghcr.io/davidpotters/guardrail-webhook:${{ steps.vars.outputs.tag }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.spdx.json
+
+      - name: Push image
+        run: docker push "ghcr.io/davidpotters/guardrail-webhook:${{ steps.vars.outputs.tag }}"
+
+      - uses: sigstore/cosign-installer@v3
+
+      # Keyless signing: cosign requests a short-lived cert from Sigstore's
+      # Fulcio CA using this job's own GitHub OIDC identity, signs with it,
+      # and the signature (plus the transparency-log entry) is what anyone
+      # verifies later -- no long-lived private signing key to generate,
+      # store as a secret, or ever leak.
+      - name: Sign image
+        run: cosign sign --yes "ghcr.io/davidpotters/guardrail-webhook:${{ steps.vars.outputs.tag }}"
+
+      # The one place this pipeline touches git: never the cluster. Argo CD
+      # picks this commit up on its own next poll/refresh, same as any
+      # other change to this repo.
+      - name: Update manifest with the new image tag
+        run: |
+          sed -i "s|image: ghcr.io/davidpotters/guardrail-webhook:.*|image: ghcr.io/davidpotters/guardrail-webhook:${{ steps.vars.outputs.tag }}|" manifests/webhook/deployment.yaml
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add manifests/webhook/deployment.yaml
+          git diff --cached --quiet && exit 0
+          git commit -m "ci: update guardrail-webhook to ${{ steps.vars.outputs.tag }}"
+          git push
