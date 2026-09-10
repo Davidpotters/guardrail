@@ -23,6 +23,38 @@ ever updates a Git repository; Argo CD, running inside the cluster,
 pulls from that repository itself. If CI is ever compromised, the
 attacker still can't touch the cluster directly.
 
+## Where this sits against my day job
+
+At TransUnion I was the last checkpoint before code reached the artifact
+registry -- the primary PR approver enforcing Checkmarx SAST and
+SonarQube gates, blocking anything carrying a Critical, High, or Medium
+vulnerability. That's a real, proven pattern: block bad artifacts before
+they ship. Guardrail moves the same judgment to a different point --
+instead of a human gate before the registry, it's an automated gate at
+the Kubernetes API server itself, so it can't be skipped by anyone with
+cluster access, pipeline or not.
+
+A few pieces here are deliberate departures from what I did day to day,
+not restatements of it:
+
+- **Hand-rolled Go webhook, not Gatekeeper.** OPA/Gatekeeper is the
+  standard way to wire admission control into Kubernetes today, and it's
+  what I'd actually recommend for a production team -- policy as Rego,
+  applied with `kubectl apply`, no custom server to run or maintain.
+  Guardrail writes the webhook by hand instead, on purpose: it's a
+  stronger demonstration of direct competency against the Kubernetes
+  `admission/v1` API and Go itself than configuring an existing policy
+  engine would be.
+- **A Dockerfile I actually wrote.** My day-to-day work was almost
+  entirely with pre-built images -- patching, validating, and publishing
+  them, never authoring one from scratch. The webhook's own container
+  image changes that: a real multi-stage Go build, written and
+  maintained here.
+- **SBOM generation and image signing.** Neither was part of my job.
+  Guardrail's pipeline generates a real SBOM and signs the resulting
+  image specifically to close that gap, not because a solo project
+  strictly needs it.
+
 ## Architecture
 
 ```
@@ -72,9 +104,15 @@ attacker still can't touch the cluster directly.
       written in Go, registered with the cluster, enforcing a real
       policy set (required resource limits, no root containers, no
       `:latest` image tags, images only from an allow-listed registry).
+      Packaged with a hand-written multi-stage Dockerfile -- a real gap
+      in my day-to-day work, where I consumed pre-built images rather
+      than authoring them.
 - [ ] **v3 — Harness CI pipeline.** SAST, secrets scanning, and container
       image scanning on every push, ending in a manifest update -- never
-      a direct cluster deploy.
+      a direct cluster deploy. Also generates a Software Bill of
+      Materials and signs the resulting image (cosign/Sigstore) --
+      supply-chain steps my day job never required, added here on
+      purpose.
 - [ ] **v4 — Failure-mode demo.** A deliberately non-compliant manifest
       submitted both via the pipeline and via direct `kubectl apply`,
       showing the webhook blocks it either way, plus a written incident
