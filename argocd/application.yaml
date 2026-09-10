@@ -4,7 +4,7 @@ metadata:
   name: guardrail-demo
   namespace: argocd
 spec:
-  project: default
+  project: guardrail
   source:
     repoURL: git@github.com:Davidpotters/guardrail.git
     targetRevision: main

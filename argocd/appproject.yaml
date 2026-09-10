@@ -1,0 +1,20 @@
+# A scoped AppProject instead of Argo CD's built-in "default" project, which
+# grants an Application permission to sync any repo to any namespace on any
+# cluster. This restricts guardrail's own Application to exactly what it
+# needs: this one repo, deployed only into the demo namespace, and no
+# cluster-scoped resources (ClusterRole, another Namespace, CRDs, etc.) at
+# all -- a misconfigured or compromised Application here still can't reach
+# anything outside that blast radius.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: guardrail
+  namespace: argocd
+spec:
+  description: Guardrail's own applications only.
+  sourceRepos:
+    - git@github.com:Davidpotters/guardrail.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: demo
+  clusterResourceWhitelist: []
