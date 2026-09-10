@@ -22,7 +22,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write
     steps:
       - uses: actions/checkout@v4
       - uses: github/codeql-action/init@v3
@@ -30,7 +29,18 @@ jobs:
           languages: go
           source-root: webhook
       - uses: github/codeql-action/autobuild@v3
+      # upload: never -- GitHub's code-scanning alerts API (the default
+      # upload target) needs GitHub Advanced Security, which isn't free on
+      # a private repo. The analysis still runs for real; results just come
+      # back as a downloadable SARIF artifact instead of a hosted alert.
       - uses: github/codeql-action/analyze@v3
+        with:
+          upload: never
+          output: sarif-results
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codeql-results
+          path: sarif-results
 
   secrets-scan:
     name: Secrets scan (gitleaks)
