@@ -7,6 +7,13 @@
 kubeconfig*.yaml
 .kube/
 
+# webhook TLS cert/key -- generated locally by cmd/gencert, never committed.
+# The manifest needs the cert's *public* bytes (base64, pasted into
+# ValidatingWebhookConfiguration's caBundle by hand or a small script) but
+# never the private key.
+webhook/certs/
+*.key
+
 # local secrets/env
 .env
 *.local.yaml
