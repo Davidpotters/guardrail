@@ -1,0 +1,38 @@
+# Scoped to demo-app's own pods, not podSelector: {} (every pod in the
+# namespace) -- a blanket namespace-wide default-deny was tried first and
+# locks out debug/test pods too, since their egress gets denied along with
+# everything else. Scoping to the workload's own label is the more realistic
+# pattern: this policy governs demo-app's traffic, nothing else in the
+# namespace is affected by it.
+#
+# Verified enforced on this cluster (2026-09-10): a test pod could resolve
+# demo-app's DNS name but timed out connecting to it before the ingress rule
+# below existed, then connected cleanly after adding it. Worth stating
+# plainly since it's easy to assume otherwise -- kind's default CNI
+# (kindnet) has historically not supported NetworkPolicy, but the version
+# bundled with kind 0.33.0 does.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+spec:
+  podSelector:
+    matchLabels:
+      app: demo-app
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
