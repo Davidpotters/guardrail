@@ -1,0 +1,40 @@
+# caBundle is substituted at apply time by webhook/deploy.sh -- it has to be
+# the exact bytes of whatever cert cmd/gencert produced, and hardcoding one
+# specific run's cert here would silently break the next time someone
+# regenerates it. This is the actual reason hand-rolled webhooks (without
+# cert-manager's CA-injector doing this automatically) almost always ship a
+# deploy script rather than a fully static manifest.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: guardrail-policy
+webhooks:
+  - name: guardrail.davidpotters.dev
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Fail
+    timeoutSeconds: 5
+    clientConfig:
+      service:
+        name: guardrail-webhook
+        namespace: guardrail-system
+        path: /validate
+        port: 443
+      caBundle: "${CA_BUNDLE}"
+    rules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+        operations: ["CREATE"]
+    # Excludes the webhook's own namespace and kube-system, using the
+    # kubernetes.io/metadata.name label the API server stamps on every
+    # namespace automatically (no manual labeling needed). Without this, a
+    # webhook that's down or crash-looping could block its own replacement
+    # pod from ever starting -- and blocking kube-system pods risks the
+    # cluster's own control-plane components, which is a much bigger
+    # failure than anything this policy is meant to prevent.
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values: ["guardrail-system", "kube-system"]
