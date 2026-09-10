@@ -64,10 +64,16 @@ attacker still can't touch the cluster directly.
 - [x] **v0 — Toolchain verified.** Docker (via colima), `kind`, `kubectl`,
       the Argo CD CLI, and Go all installed and confirmed working
       locally.
-- [ ] **v1 — Cluster + GitOps loop.** A `kind` cluster running a trivial
+- [x] **v1 — Cluster + GitOps loop.** A `kind` cluster running a trivial
       demo app, deployed via Argo CD pulling from this repo's own
-      manifests -- prove the GitOps loop works end to end before adding
-      policy on top.
+      manifests over a read-only SSH deploy key (the repo stays
+      private). Verified three separate ways, not just "it synced
+      once": the initial sync adopted resources that already existed
+      in the cluster without duplicating them; a live commit (bumping
+      replicas) propagated automatically with no `kubectl apply` from
+      me; and manually scaling the deployment by hand was reverted by
+      Argo CD's self-heal in about a second, directly observed with
+      timestamped polling, not inferred from a gap between two checks.
 - [x] **v2 — Go admission webhook.** A `ValidatingAdmissionWebhook`
       written in Go (`webhook/`), registered with the cluster, enforcing
       the real policy set: required resource limits, no root containers,
