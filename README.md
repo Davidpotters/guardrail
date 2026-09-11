@@ -103,10 +103,19 @@ attacker still can't touch the cluster directly.
       it from a separate machine, confirming the signature checks out
       against Sigstore's transparency log and is tied to this exact
       repo's GitHub Actions identity.
-- [ ] **v4 — Failure-mode demo.** A deliberately non-compliant manifest
-      submitted both via the pipeline and via direct `kubectl apply`,
-      showing the webhook blocks it either way, plus a written incident
-      runbook for what an operator does when a deploy gets rejected.
+- [x] **v4 — Failure-mode demo.** Three scenarios, each actually
+      reproduced against the running cluster, not just described:
+      a direct `kubectl apply` bypass rejected outright; a noncompliant
+      change pushed through the trusted GitOps path, where the
+      Deployment update itself succeeds but every pod the resulting
+      ReplicaSet tries to create gets rejected, leaving the rollout
+      stuck while the old compliant pods keep running untouched; and
+      the webhook itself going down, which -- by design
+      (`failurePolicy: Fail`) -- blocks *all* pod creation cluster-wide,
+      not just noncompliant ones, verified by scaling it to zero and
+      watching even a fully compliant pod get refused. Full transcripts
+      and the diagnosis/resolution steps for each are in
+      [`docs/incident-runbook.md`](docs/incident-runbook.md).
 
 ## Tech stack
 
