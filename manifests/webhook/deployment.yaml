@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: webhook
-          image: ghcr.io/davidpotters/guardrail-webhook:sha-a163bab9581c
+          image: ghcr.io/davidpotters/guardrail-webhook:sha-47c27ce42844
           args:
             - -cert=/certs/tls.crt
             - -key=/certs/tls.key
