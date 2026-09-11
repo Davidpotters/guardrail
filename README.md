@@ -166,13 +166,47 @@ not restatements of it:
   local, free)
 - **Container runtime:** Docker via [colima](https://github.com/abiosoft/colima)
 
+## Documentation
+
+- [`docs/architecture.md`](docs/architecture.md) -- the design decisions
+  and tradeoffs behind every major choice above, including the ones that
+  cost something.
+- [`docs/threat-model.md`](docs/threat-model.md) -- STRIDE against each
+  trust boundary in the system, with every item marked Mitigated (how) or
+  Residual risk (why it's accepted).
+- [`docs/incident-runbook.md`](docs/incident-runbook.md) -- three failure
+  scenarios, each actually reproduced against the running cluster, with
+  real captured transcripts and diagnosis/resolution steps.
+
 ## Setup
 
 ```bash
-# Toolchain (already done as of this build)
+# Toolchain
 brew install kind kubernetes-cli argocd go colima lima docker
 colima start
 
-# Next: create the cluster (v1)
+# 1. The cluster + Argo CD
 kind create cluster --name guardrail
+kubectl create namespace argocd
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml --server-side --force-conflicts
+
+# 2. Repo access for Argo CD (private repo -- see the README's "Why this
+#    exists" section for the read-only-deploy-key reasoning)
+ssh-keygen -t ed25519 -f ~/.ssh/guardrail_argocd_deploy -N ""
+# add ~/.ssh/guardrail_argocd_deploy.pub as a read-only deploy key on the repo
+kubectl create secret generic guardrail-repo -n argocd \
+  --from-literal=type=git \
+  --from-literal=url=git@github.com:Davidpotters/guardrail.git \
+  --from-file=sshPrivateKey=$HOME/.ssh/guardrail_argocd_deploy
+kubectl label secret guardrail-repo -n argocd argocd.argoproj.io/secret-type=repository
+kubectl apply -f argocd/appproject.yaml
+kubectl apply -f argocd/application.yaml
+
+# 3. The admission webhook -- builds, loads into kind, and registers itself
+./webhook/deploy.sh
 ```
+
+Everything after that is driven by git: pushing a manifest change under
+`manifests/` reaches the cluster through Argo CD, and pushing a change
+under `webhook/` triggers `.github/workflows/webhook-ci.yml`, which builds,
+scans, signs, and updates the manifest for Argo CD to pick up in turn.
