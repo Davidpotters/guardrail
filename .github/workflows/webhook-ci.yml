@@ -54,7 +54,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Gated on both scans above passing: nothing reaches the registry
+  # Gated on both scans above passing -- nothing reaches the registry
   # carrying a Critical/High/Medium finding.
   build-scan-sign:
     name: Build, scan, sign, update manifest
