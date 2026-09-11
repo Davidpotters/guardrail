@@ -27,7 +27,6 @@ spec:
               cpu: 200m
               memory: 128Mi
           securityContext:
-            runAsNonRoot: true
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             seccompProfile:
