@@ -148,9 +148,7 @@ not restatements of it:
       the webhook itself going down, which -- by design
       (`failurePolicy: Fail`) -- blocks *all* pod creation cluster-wide,
       not just noncompliant ones, verified by scaling it to zero and
-      watching even a fully compliant pod get refused. Full transcripts
-      and the diagnosis/resolution steps for each are in
-      [`docs/incident-runbook.md`](docs/incident-runbook.md).
+      watching even a fully compliant pod get refused.
 
 ## Tech stack
 
@@ -165,22 +163,6 @@ not restatements of it:
 - **Cluster:** [kind](https://kind.sigs.k8s.io) (Kubernetes-in-Docker,
   local, free)
 - **Container runtime:** Docker via [colima](https://github.com/abiosoft/colima)
-
-## Documentation
-
-- [`docs/how-it-works.md`](docs/how-it-works.md) -- **start here.** A
-  teaching walkthrough of the whole system, explaining every new concept
-  (GitOps, admission webhooks, keyless signing, STRIDE) as it comes up,
-  bridging from real prior experience rather than assuming the vocabulary.
-- [`docs/architecture.md`](docs/architecture.md) -- the design decisions
-  and tradeoffs behind every major choice above, including the ones that
-  cost something.
-- [`docs/threat-model.md`](docs/threat-model.md) -- STRIDE against each
-  trust boundary in the system, with every item marked Mitigated (how) or
-  Residual risk (why it's accepted).
-- [`docs/incident-runbook.md`](docs/incident-runbook.md) -- three failure
-  scenarios, each actually reproduced against the running cluster, with
-  real captured transcripts and diagnosis/resolution steps.
 
 ## Setup
 
