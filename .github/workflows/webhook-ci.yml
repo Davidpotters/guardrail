@@ -1,10 +1,9 @@
-# Stands in for the Harness pipeline described in the README's "day job"
-# section. Harness is what I'd use in production and have real experience
-# running (see davidpottersdev.com/about) -- this is GitHub Actions instead,
-# specifically because it needs no account signup to actually run for a
-# portfolio demo, not because it's the production choice. The security
-# logic (SAST, secrets scan, image scan, SBOM, signing, gated before a
-# manifest update) is the same either way; only the CI backend differs.
+# Stands in for Harness, which needs an account signup that isn't worth
+# blocking a portfolio demo on. GitHub Actions is used here specifically
+# because it needs no signup to actually run, not because it's the
+# production choice. The security logic (SAST, secrets scan, image scan,
+# SBOM, signing, gated before a manifest update) is the same either way;
+# only the CI backend differs.
 name: webhook-ci
 
 on:
@@ -55,9 +54,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Gated on both scans above passing -- mirrors the actual gate I ran at
-  # TransUnion (nothing reaches the registry carrying a Critical/High/Medium
-  # finding), just moved to a different pipeline.
+  # Gated on both scans above passing -- nothing reaches the registry
+  # carrying a Critical/High/Medium finding.
   build-scan-sign:
     name: Build, scan, sign, update manifest
     needs: [codeql, secrets-scan]
@@ -81,9 +79,8 @@ jobs:
       - name: Build image
         run: docker build -t "ghcr.io/davidpotters/guardrail-webhook:${{ steps.vars.outputs.tag }}" webhook/
 
-      # Fails the build on Critical/High findings -- same severity bar as
-      # the SonarQube/Checkmarx gate from the day job, just a different tool
-      # checking a container image instead of source code.
+      # Fails the build on Critical/High findings, checking a container
+      # image instead of source code.
       - name: Scan image (Trivy)
         uses: aquasecurity/trivy-action@v0.36.0
         with:

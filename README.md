@@ -27,37 +27,35 @@ ever updates a Git repository; Argo CD, running inside the cluster,
 pulls from that repository itself. If CI is ever compromised, the
 attacker still can't touch the cluster directly.
 
-## Where this sits against my day job
+## Design philosophy
 
-At TransUnion I was the last checkpoint before code reached the artifact
-registry -- the primary PR approver enforcing Checkmarx SAST and
-SonarQube gates, blocking anything carrying a Critical, High, or Medium
-vulnerability. That's a real, proven pattern: block bad artifacts before
-they ship. Guardrail moves the same judgment to a different point --
-instead of a human gate before the registry, it's an automated gate at
-the Kubernetes API server itself, so it can't be skipped by anyone with
-cluster access, pipeline or not.
+Most CI/CD security stops at scanning an image and hoping someone reads
+the report -- a check applied before deployment, which anyone with
+cluster access can simply route around by deploying some other way.
+Guardrail's core judgment is that a check like this only means something
+if it sits somewhere a bypass is structurally impossible: the Kubernetes
+API server itself, not a step earlier in whatever pipeline happened to
+be used.
 
-A few pieces here are deliberate departures from what I did day to day,
-not restatements of it:
+A few pieces here are deliberate choices, not the easiest path available:
 
 - **Hand-rolled Go webhook, not Gatekeeper.** OPA/Gatekeeper is the
-  standard way to wire admission control into Kubernetes today, and it's
-  what I'd actually recommend for a production team -- policy as Rego,
-  applied with `kubectl apply`, no custom server to run or maintain.
-  Guardrail writes the webhook by hand instead, on purpose: it's a
-  stronger demonstration of direct competency against the Kubernetes
+  standard way to wire admission control into Kubernetes today -- policy
+  as Rego, applied with `kubectl apply`, no custom server to run or
+  maintain, and the right call for most production teams. Guardrail
+  writes the webhook by hand instead, on purpose: it's a stronger
+  demonstration of direct competency against the Kubernetes
   `admission/v1` API and Go itself than configuring an existing policy
   engine would be.
-- **A Dockerfile I actually wrote.** My day-to-day work was almost
-  entirely with pre-built images -- patching, validating, and publishing
-  them, never authoring one from scratch. The webhook's own container
-  image changes that: a real multi-stage Go build, written and
-  maintained here.
-- **SBOM generation and image signing.** Neither was part of my job.
-  Guardrail's pipeline generates a real SBOM and signs the resulting
-  image specifically to close that gap, not because a solo project
-  strictly needs it.
+- **A Dockerfile written from scratch.** Consuming pre-built images is
+  common enough in platform work that authoring one is easy to skip
+  entirely. The webhook's own container image is a real multi-stage Go
+  build, written and maintained here.
+- **SBOM generation and image signing.** Real supply-chain security
+  steps that are easy to leave for later indefinitely. Guardrail's
+  pipeline generates a real SBOM and signs the resulting image, not
+  because a solo project strictly needs it, but because doing it once,
+  correctly, is worth more than reading about it.
 
 ## Architecture
 
@@ -122,15 +120,12 @@ not restatements of it:
       violation listed in one response. `webhook/deploy.sh` builds,
       loads into `kind`, and registers the whole thing end to end.
 - [x] **v3 — CI pipeline.** Built on GitHub Actions
-      (`.github/workflows/webhook-ci.yml`), not Harness -- Harness is
-      what I'd actually run in production and have real experience
-      with (see [davidpottersdev.com/about](https://davidpottersdev.com/about)),
-      but it needs an account signup that isn't worth blocking a
-      portfolio demo on. The pipeline logic is what matters and is the
-      same either way: SAST (CodeQL) and secrets scanning (gitleaks)
+      (`.github/workflows/webhook-ci.yml`), not Harness -- Harness needs
+      an account signup that isn't worth blocking a portfolio demo on,
+      and the pipeline logic is what actually matters here, not which
+      vendor runs it. SAST (CodeQL) and secrets scanning (gitleaks)
       gate the build; Trivy fails it on Critical/High image
-      vulnerabilities, the same severity bar I enforced at TransUnion;
-      an SBOM gets generated and the image is signed with cosign,
+      vulnerabilities; an SBOM gets generated and the image is signed with cosign,
       keylessly via GitHub's own OIDC identity -- no signing key ever
       generated, stored, or capable of leaking. The pipeline's only
       write access to anything is a commit back to this repo's own
