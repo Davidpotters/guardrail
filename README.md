@@ -1,5 +1,7 @@
 # Guardrail
 
+[![CI](https://github.com/Davidpotters/guardrail/actions/workflows/webhook-ci.yml/badge.svg)](https://github.com/Davidpotters/guardrail/actions/workflows/webhook-ci.yml)
+
 A self-hosted policy-enforcement platform for Kubernetes: CI builds, scans,
 and signs a container image, GitOps (Argo CD) deploys it, and a
 hand-written Go admission webhook enforces security policy inside the
@@ -161,3 +163,7 @@ Everything after that is driven by git: pushing a manifest change under
 `manifests/` reaches the cluster through Argo CD, and pushing a change
 under `webhook/` triggers `.github/workflows/webhook-ci.yml`, which builds,
 scans, signs, and updates the manifest for Argo CD to pick up in turn.
+
+## License
+
+[MIT](LICENSE)
