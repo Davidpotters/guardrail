@@ -1,6 +1,6 @@
 # Guardrail
 
-[![CI](https://github.com/Davidpotters/guardrail/actions/workflows/webhook-ci.yml/badge.svg)](https://github.com/Davidpotters/guardrail/actions/workflows/webhook-ci.yml)
+[![CI](https://github.com/Davidpotters/guardrail/workflows/webhook-ci/badge.svg)](https://github.com/Davidpotters/guardrail/actions/workflows/webhook-ci.yml)
 
 A self-hosted policy-enforcement platform for Kubernetes: CI builds, scans,
 and signs a container image, GitOps (Argo CD) deploys it, and a
