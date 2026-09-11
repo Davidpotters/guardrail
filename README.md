@@ -1,12 +1,13 @@
 # Guardrail
 
-A self-hosted policy-enforcement platform for Kubernetes: Harness CI builds
-and scans a container image, GitOps (Argo CD) deploys it, and a
+A self-hosted policy-enforcement platform for Kubernetes: CI builds, scans,
+and signs a container image, GitOps (Argo CD) deploys it, and a
 hand-written Go admission webhook enforces security policy inside the
 cluster itself -- before anything unsafe can run, not after.
 
-**Status: early development.** Local toolchain verified (Docker, kind,
-kubectl, Argo CD CLI, Go); no cluster or pipeline built yet.
+**Status: v0 through v3 done and verified live, not just written.** v4
+(the failure-mode demo) is next -- see the roadmap below for exactly what
+"verified" means for each one.
 
 ## Why this exists
 
@@ -17,7 +18,8 @@ hand with `kubectl apply`, bypassing the pipeline entirely, still has to
 pass the admission webhook -- because the webhook is a property of the
 cluster, not of the pipeline that happened to be used this time.
 
-The pipeline (Harness) and the deploy mechanism (Argo CD) are kept
+The pipeline (GitHub Actions, standing in for Harness -- see the v3 roadmap
+entry) and the deploy mechanism (Argo CD) are kept
 strictly separate on purpose: CI never holds cluster credentials. It only
 ever updates a Git repository; Argo CD, running inside the cluster,
 pulls from that repository itself. If CI is ever compromised, the
@@ -59,10 +61,10 @@ not restatements of it:
 
 ```
  ┌──────────────┐   build + scan    ┌───────────────────┐
- │  Harness CI   │ ────────────────▶ │  Container image    │
- │  (SAST,       │                   │  + scan results      │
- │  secrets scan,│                   └─────────┬─────────┘
- │  image scan)  │                             │ push
+ │  CI (GitHub  │ ────────────────▶ │  Container image    │
+ │  Actions;     │                   │  + SBOM + signature   │
+ │  SAST, secrets│                   └─────────┬─────────┘
+ │  + image scan)│                             │ push
  └──────┬───────┘                             ▼
         │ update manifest              ┌──────────────┐
         │ (image tag only --           │  Registry     │
@@ -117,12 +119,25 @@ not restatements of it:
       at all) is rejected by the API server itself, with every
       violation listed in one response. `webhook/deploy.sh` builds,
       loads into `kind`, and registers the whole thing end to end.
-- [ ] **v3 — Harness CI pipeline.** SAST, secrets scanning, and container
-      image scanning on every push, ending in a manifest update -- never
-      a direct cluster deploy. Also generates a Software Bill of
-      Materials and signs the resulting image (cosign/Sigstore) --
-      supply-chain steps my day job never required, added here on
-      purpose.
+- [x] **v3 — CI pipeline.** Built on GitHub Actions
+      (`.github/workflows/webhook-ci.yml`), not Harness -- Harness is
+      what I'd actually run in production and have real experience
+      with (see [davidpottersdev.com/about](https://davidpottersdev.com/about)),
+      but it needs an account signup that isn't worth blocking a
+      portfolio demo on. The pipeline logic is what matters and is the
+      same either way: SAST (CodeQL) and secrets scanning (gitleaks)
+      gate the build; Trivy fails it on Critical/High image
+      vulnerabilities, the same severity bar I enforced at TransUnion;
+      an SBOM gets generated and the image is signed with cosign,
+      keylessly via GitHub's own OIDC identity -- no signing key ever
+      generated, stored, or capable of leaking. The pipeline's only
+      write access to anything is a commit back to this repo's own
+      manifest with the new image tag -- it never touches the cluster.
+      Independently verified, not just trusted from a green checkmark:
+      pulled the real published image and ran `cosign verify` against
+      it from a separate machine, confirming the signature checks out
+      against Sigstore's transparency log and is tied to this exact
+      repo's GitHub Actions identity.
 - [ ] **v4 — Failure-mode demo.** A deliberately non-compliant manifest
       submitted both via the pipeline and via direct `kubectl apply`,
       showing the webhook blocks it either way, plus a written incident
@@ -130,8 +145,11 @@ not restatements of it:
 
 ## Tech stack
 
-- **CI:** [Harness](https://harness.io) (free tier — self-hosted runner,
-  no cost for a solo project)
+- **CI:** [GitHub Actions](https://github.com/features/actions) -- standing
+  in for [Harness](https://harness.io) (see the v3 roadmap entry for why)
+- **Supply chain:** [Trivy](https://trivy.dev) (image scanning),
+  [Syft](https://github.com/anchore/syft) (SBOM), [cosign](https://www.sigstore.dev/)
+  (keyless image signing)
 - **GitOps / CD:** [Argo CD](https://argo-cd.readthedocs.io)
 - **Policy enforcement:** Go, using `k8s.io/api` and the Kubernetes
   `admission/v1` API
