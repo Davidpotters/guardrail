@@ -116,6 +116,13 @@ jobs:
       # The one place this pipeline touches git: never the cluster. Argo CD
       # picks this commit up on its own next poll/refresh, same as any
       # other change to this repo.
+      #
+      # The push is retried with a rebase on real conflict, not just once:
+      # this job checks out main at job start and can take several minutes
+      # to reach this step, so any push to main in the meantime (a human
+      # push, another workflow run) makes a plain `git push` here fail with
+      # a real, reproduced "fetch first" rejection -- confirmed live, not
+      # theoretical.
       - name: Update manifest with the new image tag
         run: |
           sed -i "s|image: ghcr.io/davidpotters/guardrail-webhook:.*|image: ghcr.io/davidpotters/guardrail-webhook:${{ steps.vars.outputs.tag }}|" manifests/webhook/deployment.yaml
@@ -124,4 +131,10 @@ jobs:
           git add manifests/webhook/deployment.yaml
           git diff --cached --quiet && exit 0
           git commit -m "ci: update guardrail-webhook to ${{ steps.vars.outputs.tag }}"
-          git push
+          for i in 1 2 3 4 5; do
+            git push && exit 0
+            git fetch origin main
+            git rebase origin/main
+          done
+          echo "::error::git push kept losing the race after 5 attempts"
+          exit 1
