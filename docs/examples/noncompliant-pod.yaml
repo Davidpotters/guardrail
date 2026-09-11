@@ -1,0 +1,17 @@
+# Deliberately violates all four policies at once, for the failure-mode
+# demo in docs/incident-runbook.md. Not referenced by Argo CD's Application
+# (its source path is manifests/demo-app/, not docs/) -- this file can never
+# get auto-synced into the cluster. Apply it by hand to see the bypass path:
+#
+#   kubectl apply -f docs/examples/noncompliant-pod.yaml
+#
+# It will be rejected. That's the point.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: noncompliant-demo
+  namespace: demo
+spec:
+  containers:
+    - name: app
+      image: nginx # no tag -> implicit :latest, and not on the allow-list either
