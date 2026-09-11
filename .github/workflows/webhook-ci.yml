@@ -70,7 +70,7 @@ jobs:
       - id: vars
         run: echo "tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
 
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
