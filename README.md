@@ -168,6 +168,10 @@ not restatements of it:
 
 ## Documentation
 
+- [`docs/how-it-works.md`](docs/how-it-works.md) -- **start here.** A
+  teaching walkthrough of the whole system, explaining every new concept
+  (GitOps, admission webhooks, keyless signing, STRIDE) as it comes up,
+  bridging from real prior experience rather than assuming the vocabulary.
 - [`docs/architecture.md`](docs/architecture.md) -- the design decisions
   and tradeoffs behind every major choice above, including the ones that
   cost something.
