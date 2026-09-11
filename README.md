@@ -7,9 +7,8 @@ and signs a container image, GitOps (Argo CD) deploys it, and a
 hand-written Go admission webhook enforces security policy inside the
 cluster itself -- before anything unsafe can run, not after.
 
-**Status: v0 through v3 done and verified live, not just written.** v4
-(the failure-mode demo) is next -- see the roadmap below for exactly what
-"verified" means for each one.
+**Status: v0 through v4 done and verified live, not just written.** See
+the roadmap below for exactly what "verified" means for each one.
 
 ## Why this exists
 
@@ -28,14 +27,6 @@ pulls from that repository itself. If CI is ever compromised, the
 attacker still can't touch the cluster directly.
 
 ## Design philosophy
-
-Most CI/CD security stops at scanning an image and hoping someone reads
-the report -- a check applied before deployment, which anyone with
-cluster access can simply route around by deploying some other way.
-Guardrail's core judgment is that a check like this only means something
-if it sits somewhere a bypass is structurally impossible: the Kubernetes
-API server itself, not a step earlier in whatever pipeline happened to
-be used.
 
 A few pieces here are deliberate choices, not the easiest path available:
 
@@ -59,39 +50,23 @@ A few pieces here are deliberate choices, not the easiest path available:
 
 ## Architecture
 
+```mermaid
+flowchart TD
+    CI["CI: GitHub Actions<br/>SAST + secrets scan + image scan"] -->|build, scan, sign| IMG["Container image<br/>+ SBOM + signature"]
+    IMG -->|push| REG[("Registry")]
+    CI -->|"commit: image tag only<br/>(no cluster access)"| GIT[("Git repo<br/>GitOps source of truth")]
+
+    subgraph CLUSTER["Kubernetes cluster (kind, local)"]
+        GIT -->|polled / watched| ARGOCD["Argo CD<br/>pulls from Git, syncs cluster"]
+        ARGOCD -->|admission review| WEBHOOK{{"Go admission webhook<br/>(policy engine)"}}
+        WEBHOOK -->|allow / deny + reason| ARGOCD
+        KUBECTL["Manual kubectl apply<br/>(bypasses the pipeline)"] -->|admission review| WEBHOOK
+    end
 ```
- ┌──────────────┐   build + scan    ┌───────────────────┐
- │  CI (GitHub  │ ────────────────▶ │  Container image    │
- │  Actions;     │                   │  + SBOM + signature   │
- │  SAST, secrets│                   └─────────┬─────────┘
- │  + image scan)│                             │ push
- └──────┬───────┘                             ▼
-        │ update manifest              ┌──────────────┐
-        │ (image tag only --           │  Registry     │
-        │  no cluster access)          └──────────────┘
-        ▼
- ┌──────────────┐
- │  Git repo     │   (manifests: Deployment, Service, etc.)
- │  (GitOps       │
- │  source of     │
- │  truth)        │
- └──────┬───────┘
-        │ polled/watched
-        ▼
- ┌──────────────────────────────────────────────┐
- │  Kubernetes cluster (kind, local)              │
- │                                                  │
- │   ┌───────────┐        admission review          │
- │   │  Argo CD   │ ──────────────────────────▶ ┌────────────────┐
- │   │ (pulls from│                              │  Go admission    │
- │   │  Git, syncs│ ◀────────────────────────── │  webhook          │
- │   │  cluster)  │      allow / deny + reason    │  (policy engine)  │
- │   └───────────┘                              └────────────────┘
- │                                                                    │
- │  Every resource creation/update -- from Argo CD OR a manual        │
- │  kubectl apply -- passes through the webhook. There's no bypass.    │
- └──────────────────────────────────────────────────────────────────┘
-```
+
+Every resource creation or update -- whether it came from Argo CD or a
+manual `kubectl apply` -- passes through the webhook. There's no path
+that skips it.
 
 ## Roadmap
 
@@ -173,8 +148,9 @@ kind create cluster --name guardrail
 kubectl create namespace argocd
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml --server-side --force-conflicts
 
-# 2. Repo access for Argo CD (private repo -- see the README's "Why this
-#    exists" section for the read-only-deploy-key reasoning)
+# 2. Repo access for Argo CD -- the repo stays private, so this needs a
+#    credential scoped to exactly this one repo, read-only, rather than
+#    a broader personal token
 ssh-keygen -t ed25519 -f ~/.ssh/guardrail_argocd_deploy -N ""
 # add ~/.ssh/guardrail_argocd_deploy.pub as a read-only deploy key on the repo
 kubectl create secret generic guardrail-repo -n argocd \
