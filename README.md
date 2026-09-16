@@ -5,10 +5,11 @@
 A self-hosted policy-enforcement platform for Kubernetes: CI builds, scans,
 and signs a container image, GitOps (Argo CD) deploys it, and a
 hand-written Go admission webhook enforces security policy inside the
-cluster itself -- before anything unsafe can run, not after.
+cluster itself: before anything unsafe can run, not after.
 
-**Status: v0 through v4 done and verified live, not just written.** See
-the roadmap below for exactly what "verified" means for each one.
+**Status: v0 through v4 complete**, each phase checked against the
+running cluster rather than just assumed to work. See the roadmap
+below for exactly what that verification looked like.
 
 ## Why this exists
 
@@ -16,10 +17,10 @@ Most CI/CD security stops at "scan the image and hope someone reads the
 report." Guardrail enforces policy at the one point it can't be
 bypassed: the Kubernetes API server itself. Even a deployment pushed by
 hand with `kubectl apply`, bypassing the pipeline entirely, still has to
-pass the admission webhook -- because the webhook is a property of the
+pass the admission webhook, because the webhook is a property of the
 cluster, not of the pipeline that happened to be used this time.
 
-The pipeline (GitHub Actions, standing in for Harness -- see the v3 roadmap
+The pipeline (GitHub Actions, standing in for Harness; see the v3 roadmap
 entry) and the deploy mechanism (Argo CD) are kept
 strictly separate on purpose: CI never holds cluster credentials. It only
 ever updates a Git repository; Argo CD, running inside the cluster,
@@ -31,7 +32,7 @@ attacker still can't touch the cluster directly.
 A few pieces here are deliberate choices, not the easiest path available:
 
 - **Hand-rolled Go webhook, not Gatekeeper.** OPA/Gatekeeper is the
-  standard way to wire admission control into Kubernetes today -- policy
+  standard way to wire admission control into Kubernetes today: policy
   as Rego, applied with `kubectl apply`, no custom server to run or
   maintain, and the right call for most production teams. Guardrail
   writes the webhook by hand instead, on purpose: it's a stronger
@@ -64,8 +65,8 @@ flowchart TD
     end
 ```
 
-Every resource creation or update -- whether it came from Argo CD or a
-manual `kubectl apply` -- passes through the webhook. There's no path
+Every resource creation or update, whether it came from Argo CD or a
+manual `kubectl apply`, passes through the webhook. There's no path
 that skips it.
 
 ## Roadmap
@@ -76,8 +77,7 @@ that skips it.
 - [x] **v1 — Cluster + GitOps loop.** A `kind` cluster running a trivial
       demo app, deployed via Argo CD pulling from this repo's own
       manifests over a read-only SSH deploy key (the repo stays
-      private). Verified three separate ways, not just "it synced
-      once": the initial sync adopted resources that already existed
+      private). Verified three separate ways: the initial sync adopted resources that already existed
       in the cluster without duplicating them; a live commit (bumping
       replicas) propagated automatically with no `kubectl apply` from
       me; and manually scaling the deployment by hand was reverted by
@@ -95,36 +95,35 @@ that skips it.
       violation listed in one response. `webhook/deploy.sh` builds,
       loads into `kind`, and registers the whole thing end to end.
 - [x] **v3 — CI pipeline.** Built on GitHub Actions
-      (`.github/workflows/webhook-ci.yml`), not Harness -- Harness needs
+      (`.github/workflows/webhook-ci.yml`), not Harness: Harness needs
       an account signup that isn't worth blocking a portfolio demo on,
       and the pipeline logic is what actually matters here, not which
       vendor runs it. SAST (CodeQL) and secrets scanning (gitleaks)
       gate the build; Trivy fails it on Critical/High image
       vulnerabilities; an SBOM gets generated and the image is signed with cosign,
-      keylessly via GitHub's own OIDC identity -- no signing key ever
+      keylessly via GitHub's own OIDC identity: no signing key is ever
       generated, stored, or capable of leaking. The pipeline's only
       write access to anything is a commit back to this repo's own
-      manifest with the new image tag -- it never touches the cluster.
-      Independently verified, not just trusted from a green checkmark:
-      pulled the real published image and ran `cosign verify` against
-      it from a separate machine, confirming the signature checks out
+      manifest with the new image tag; it never touches the cluster.
+      Independently verified by pulling the real published image and running
+      `cosign verify` against it from a separate machine, confirming the signature checks out
       against Sigstore's transparency log and is tied to this exact
       repo's GitHub Actions identity.
 - [x] **v4 — Failure-mode demo.** Three scenarios, each actually
-      reproduced against the running cluster, not just described:
+      reproduced against the running cluster:
       a direct `kubectl apply` bypass rejected outright; a noncompliant
       change pushed through the trusted GitOps path, where the
       Deployment update itself succeeds but every pod the resulting
       ReplicaSet tries to create gets rejected, leaving the rollout
       stuck while the old compliant pods keep running untouched; and
-      the webhook itself going down, which -- by design
-      (`failurePolicy: Fail`) -- blocks *all* pod creation cluster-wide,
+      the webhook itself going down, which by design
+      (`failurePolicy: Fail`) blocks *all* pod creation cluster-wide,
       not just noncompliant ones, verified by scaling it to zero and
       watching even a fully compliant pod get refused.
 
 ## Tech stack
 
-- **CI:** [GitHub Actions](https://github.com/features/actions) -- standing
+- **CI:** [GitHub Actions](https://github.com/features/actions), standing
   in for [Harness](https://harness.io) (see the v3 roadmap entry for why)
 - **Supply chain:** [Trivy](https://trivy.dev) (image scanning),
   [Syft](https://github.com/anchore/syft) (SBOM), [cosign](https://www.sigstore.dev/)
@@ -148,7 +147,7 @@ kind create cluster --name guardrail
 kubectl create namespace argocd
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml --server-side --force-conflicts
 
-# 2. Repo access for Argo CD -- the repo stays private, so this needs a
+# 2. Repo access for Argo CD: the repo stays private, so this needs a
 #    credential scoped to exactly this one repo, read-only, rather than
 #    a broader personal token
 ssh-keygen -t ed25519 -f ~/.ssh/guardrail_argocd_deploy -N ""
@@ -161,7 +160,7 @@ kubectl label secret guardrail-repo -n argocd argocd.argoproj.io/secret-type=rep
 kubectl apply -f argocd/appproject.yaml
 kubectl apply -f argocd/application.yaml
 
-# 3. The admission webhook -- builds, loads into kind, and registers itself
+# 3. The admission webhook: builds, loads into kind, and registers itself
 ./webhook/deploy.sh
 ```
 
