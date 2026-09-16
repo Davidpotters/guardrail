@@ -87,9 +87,9 @@ that skips it.
       written in Go (`webhook/`), registered with the cluster, enforcing
       the real policy set: required resource limits, no root containers,
       no `:latest` image tags, images only from an allow-listed
-      registry. Packaged with a hand-written multi-stage Dockerfile, something this
-      project required writing from scratch rather than building on a
-      pre-built base image. Verified live: a noncompliant
+      registry. Packaged with a hand-written multi-stage Dockerfile,
+      something this project required writing from scratch rather than
+      building on a pre-built base image. Verified live: a noncompliant
       pod applied directly with `kubectl apply` (no pipeline involved
       at all) is rejected by the API server itself, with every
       violation listed in one response. `webhook/deploy.sh` builds,
