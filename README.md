@@ -7,7 +7,7 @@ and signs a container image, GitOps (Argo CD) deploys it, and a
 hand-written Go admission webhook enforces security policy inside the
 cluster itself: before anything unsafe can run, not after.
 
-**Status: Phase 0 through Phase 4 complete**, each phase checked against the
+**Status: Phase 0 through Phase 5 complete**, each phase checked against the
 running cluster rather than just assumed to work. See the roadmap
 below for exactly what that verification looked like.
 
@@ -120,6 +120,28 @@ that skips it.
       (`failurePolicy: Fail`) blocks *all* pod creation cluster-wide,
       not just noncompliant ones, verified by scaling it to zero and
       watching even a fully compliant pod get refused.
+- [x] **Phase 5 — Adversarial test: can the webhook itself be
+      disabled?** `manifests/examples/restricted-deployer-rbac.yaml`
+      grants a real ServiceAccount exactly the access a normal app
+      developer has: create and update pods and deployments in one
+      namespace, nothing on `admissionregistration.k8s.io`, nothing
+      cluster-scoped. Using only that identity's own token, four
+      real bypass attempts against the live cluster were all rejected
+      at the RBAC layer: deleting the webhook configuration outright,
+      patching its `failurePolicy` from `Fail` to `Ignore`, labeling
+      the `demo` namespace to fall outside the webhook's
+      `namespaceSelector`, and deleting the webhook's own pods to
+      force a denial-of-service against it. The same restricted
+      identity's legitimate pod request was still correctly evaluated
+      and rejected by the policy engine, confirming it wasn't simply
+      broken. **Honest limit, not a gap being hidden:** an identity
+      that genuinely holds `cluster-admin` (or any RBAC grant over
+      `admissionregistration.k8s.io`) can disable this webhook, tested
+      and confirmed live, then reverted immediately. No admission
+      controller can defend against whoever administers the admission
+      chain itself; the real security boundary this project actually
+      provides is against everyone *without* that access, not against
+      cluster-admin.
 
 ## Tech stack
 

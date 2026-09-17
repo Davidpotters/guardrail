@@ -1,0 +1,35 @@
+# A namespace-scoped identity with exactly the access a normal app
+# developer would have: create/update pods and deployments in one
+# namespace, nothing on the webhook itself, nothing cluster-scoped.
+# Used to prove the webhook can't be bypassed by anyone without
+# explicit RBAC over admissionregistration.k8s.io resources -- see the
+# README's Phase 5 roadmap entry for the actual test procedure.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: demo-deployer
+  namespace: demo
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: demo-deployer
+  namespace: demo
+rules:
+  - apiGroups: ["", "apps"]
+    resources: ["pods", "deployments"]
+    verbs: ["get", "list", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: demo-deployer
+  namespace: demo
+subjects:
+  - kind: ServiceAccount
+    name: demo-deployer
+    namespace: demo
+roleRef:
+  kind: Role
+  name: demo-deployer
+  apiGroup: rbac.authorization.k8s.io
