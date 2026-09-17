@@ -7,7 +7,7 @@ and signs a container image, GitOps (Argo CD) deploys it, and a
 hand-written Go admission webhook enforces security policy inside the
 cluster itself: before anything unsafe can run, not after.
 
-**Status: v0 through v4 complete**, each phase checked against the
+**Status: Phase 0 through Phase 4 complete**, each phase checked against the
 running cluster rather than just assumed to work. See the roadmap
 below for exactly what that verification looked like.
 
@@ -20,7 +20,7 @@ hand with `kubectl apply`, bypassing the pipeline entirely, still has to
 pass the admission webhook, because the webhook is a property of the
 cluster, not of the pipeline that happened to be used this time.
 
-The pipeline (GitHub Actions, standing in for Harness; see the v3 roadmap
+The pipeline (GitHub Actions, standing in for Harness; see the Phase 3 roadmap
 entry) and the deploy mechanism (Argo CD) are kept
 strictly separate on purpose: CI never holds cluster credentials. It only
 ever updates a Git repository; Argo CD, running inside the cluster,
@@ -71,10 +71,10 @@ that skips it.
 
 ## Roadmap
 
-- [x] **v0 — Toolchain verified.** Docker (via colima), `kind`, `kubectl`,
+- [x] **Phase 0 — Toolchain verified.** Docker (via colima), `kind`, `kubectl`,
       the Argo CD CLI, and Go all installed and confirmed working
       locally.
-- [x] **v1 — Cluster + GitOps loop.** A `kind` cluster running a trivial
+- [x] **Phase 1 — Cluster + GitOps loop.** A `kind` cluster running a trivial
       demo app, deployed via Argo CD pulling from this repo's own
       manifests over a read-only SSH deploy key (the repo stays
       private). Verified three separate ways: the initial sync adopted resources that already existed
@@ -83,7 +83,7 @@ that skips it.
       me; and manually scaling the deployment by hand was reverted by
       Argo CD's self-heal in about a second, directly observed with
       timestamped polling, not inferred from a gap between two checks.
-- [x] **v2 — Go admission webhook.** A `ValidatingAdmissionWebhook`
+- [x] **Phase 2 — Go admission webhook.** A `ValidatingAdmissionWebhook`
       written in Go (`webhook/`), registered with the cluster, enforcing
       the real policy set: required resource limits, no root containers,
       no `:latest` image tags, images only from an allow-listed
@@ -94,7 +94,7 @@ that skips it.
       at all) is rejected by the API server itself, with every
       violation listed in one response. `webhook/deploy.sh` builds,
       loads into `kind`, and registers the whole thing end to end.
-- [x] **v3 — CI pipeline.** Built on GitHub Actions
+- [x] **Phase 3 — CI pipeline.** Built on GitHub Actions
       (`.github/workflows/webhook-ci.yml`), not Harness: Harness needs
       an account signup that isn't worth blocking a portfolio demo on,
       and the pipeline logic is what actually matters here, not which
@@ -109,7 +109,7 @@ that skips it.
       `cosign verify` against it from a separate machine, confirming the signature checks out
       against Sigstore's transparency log and is tied to this exact
       repo's GitHub Actions identity.
-- [x] **v4 — Failure-mode demo.** Three scenarios, each actually
+- [x] **Phase 4 — Failure-mode demo.** Three scenarios, each actually
       reproduced against the running cluster:
       a direct `kubectl apply` bypass rejected outright; a noncompliant
       change pushed through the trusted GitOps path, where the
@@ -124,7 +124,7 @@ that skips it.
 ## Tech stack
 
 - **CI:** [GitHub Actions](https://github.com/features/actions), standing
-  in for [Harness](https://harness.io) (see the v3 roadmap entry for why)
+  in for [Harness](https://harness.io) (see the Phase 3 roadmap entry for why)
 - **Supply chain:** [Trivy](https://trivy.dev) (image scanning),
   [Syft](https://github.com/anchore/syft) (SBOM), [cosign](https://www.sigstore.dev/)
   (keyless image signing)
